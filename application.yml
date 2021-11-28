@@ -15,7 +15,7 @@ logging:
   # 配置文件名
   config: log4j2.xml
   level:
-    com.thinkdifferent.core: trace
+    com.thinkdifferent: trace
 
 # 线程设置参数 #######
 ThreadPool:
