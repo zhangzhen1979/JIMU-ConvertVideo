@@ -4,16 +4,14 @@ import com.thinkdifferent.convertvideo.config.ConvertVideoConfig;
 import com.thinkdifferent.convertvideo.service.ConvertVideoService;
 import com.thinkdifferent.convertvideo.utils.ConvertVideoUtils;
 import com.thinkdifferent.convertvideo.utils.FtpUtil;
+import com.thinkdifferent.convertvideo.utils.GetFileUtil;
+import com.thinkdifferent.convertvideo.utils.WriteBackUtil;
 import net.sf.json.JSONObject;
-import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,8 +91,8 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
                     mapInputHeaders = (Map)parameters.get("inputHeaders");
                 }
 
-                byte[] byteFile = getFile(strInputPath, mapInputHeaders);
-                fileInput = byte2File(byteFile, strOutPutPath+strInputFileName);
+                byte[] byteFile = GetFileUtil.getFile(strInputPath, mapInputHeaders);
+                fileInput = GetFileUtil.byte2File(byteFile, strOutPutPath+strInputFileName);
 
                 strInputPath = strOutPutPath+strInputFileName;
             }
@@ -141,7 +139,7 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
 
                     if("url".equalsIgnoreCase(strWriteBackType)){
                         String strWriteBackURL = jsonWriteBack.getString("url");
-                        jsonReturn = writeBack2Api(strMp4FilePathName, strWriteBackURL, mapWriteBackHeaders);
+                        jsonReturn = WriteBackUtil.writeBack2Api(strMp4FilePathName, strWriteBackURL, mapWriteBackHeaders);
                     }else if("ftp".equalsIgnoreCase(strWriteBackType)){
                         // ftp回写
                         String strFtpHost = jsonWriteBack.getString("host");
@@ -177,7 +175,7 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
                         String strCallBackURL = String.valueOf(parameters.get("callBackURL"));
                         strCallBackURL = strCallBackURL + "?file=" + strMp4FileName + "&flag=" + strFlag;
 
-                        sendGet(strCallBackURL);
+                        WriteBackUtil.sendGet(strCallBackURL);
                     }
 
                 }else{
@@ -195,235 +193,6 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
 
         return jsonReturn;
 
-    }
-
-
-    /**
-     * 从url中以get方式获取文件。可以传入Headers
-     * @param strURL 文件访问URL
-     * @param mapHeaders Headers参数
-     * @return
-     * @throws IOException
-     */
-    private static byte[] getFile(String strURL, Map<String, String> mapHeaders) throws IOException {
-        logger.info("Ready Get Request Url[{}]", strURL);
-        HttpGet httpGet = new HttpGet(strURL);
-        httpGet.setHeaders(getHeaders(mapHeaders));
-        HttpResponse httpResponse = HttpClients.createDefault().execute(httpGet);
-        if (null == httpResponse || httpResponse.getStatusLine() == null) {
-            logger.info("Post Request For Url[{}] is not ok. Response is null", strURL);
-            return null;
-        } else if (httpResponse.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-            logger.info("Post Request For Url[{}] is not ok. Response Status Code is {}", strURL,
-                    httpResponse.getStatusLine().getStatusCode());
-            return null;
-        }
-        return EntityUtils.toByteArray(httpResponse.getEntity());
-    }
-
-    /**
-     * 将传入的Map参数转换为Header对象数组
-     * @param mapHeaders Header参数
-     * @return Header对象数组
-     */
-    private static Header[] getHeaders(Map<String, String> mapHeaders){
-        Header[] headers = new Header[mapHeaders.size()];
-
-        int i = 0;
-        for (Map.Entry<String, String> entry : mapHeaders.entrySet()) {
-            logger.info("Header -- key = " + entry.getKey() + ", value = " + entry.getValue());
-            headers[i] = new BasicHeader(entry.getKey(), entry.getValue());
-            i++;
-        }
-
-        return headers;
-    }
-
-    /**
-     * 将byte数组写入到文件
-     * @param byteArray 文件的byte数组
-     * @param strTargetPath 目标文件夹和文件名
-     * @return File文件对象
-     */
-    public static File byte2File(byte[] byteArray, String strTargetPath) {
-        InputStream inputStream = new ByteArrayInputStream(byteArray);
-        File file = new File(strTargetPath);
-        String strPath = strTargetPath.substring(0, strTargetPath.lastIndexOf("/"));
-        if (!file.exists()) {
-            new File(strPath).mkdirs();
-        }
-        FileOutputStream fos = null;
-        try {
-            fos = new FileOutputStream(file);
-            int intLen = 0;
-            byte[] byteBuf = new byte[1024];
-            while ((intLen = inputStream.read(byteBuf)) != -1) {
-                fos.write(byteBuf, 0, intLen);
-            }
-            fos.flush();
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (null != fos) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        return file;
-    }
-
-    /**
-     * 调用API接口，将文件上传
-     * @param strFilePathName 文件路径和文件名
-     * @param strUrl API接口的URL
-     * @param mapHeader Header参数
-     * @return 接口返回的JSON
-     * @throws Exception
-     */
-    public static JSONObject writeBack2Api(String strFilePathName, String strUrl, Map<String, Object> mapHeader)
-            throws Exception {
-
-        JSONObject jsonReturn = new JSONObject();
-        jsonReturn.put("flag", "error");
-        jsonReturn.put("message", "Call Back Error. URL = " + strUrl);
-
-        // 换行符
-        final String strNewLine = "\r\n";
-        final String strBoundaryPrefix = "--";
-        // 定义数据分隔线
-        String strBOUNDARY = "========7d4a6d158c9";
-        // 服务器的域名
-        URL url = new URL(strUrl);
-        HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
-        // 设置为POST情
-        httpURLConnection.setRequestMethod("POST");
-        // 发送POST请求必须设置如下两行
-        httpURLConnection.setDoOutput(true);
-        httpURLConnection.setDoInput(true);
-        httpURLConnection.setUseCaches(false);
-        // 设置请求头参数
-        httpURLConnection.setRequestProperty("Connection", "Keep-Alive");
-        httpURLConnection.setRequestProperty("Charset", "UTF-8");
-        httpURLConnection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + strBOUNDARY);
-        try (
-                OutputStream outputStream = httpURLConnection.getOutputStream();
-                DataOutputStream out = new DataOutputStream(outputStream);
-        ) {
-            //传递参数
-            if (mapHeader != null) {
-                StringBuilder stringBuilder = new StringBuilder();
-                for (Map.Entry<String, Object> entry : mapHeader.entrySet()) {
-                    stringBuilder.append(strBoundaryPrefix)
-                            .append(strBOUNDARY)
-                            .append(strNewLine)
-                            .append("Content-Disposition: form-data; name=\"")
-                            .append(entry.getKey())
-                            .append("\"").append(strNewLine).append(strNewLine)
-                            .append(String.valueOf(entry.getValue()))
-                            .append(strNewLine);
-                }
-                out.write(stringBuilder.toString().getBytes(Charset.forName("UTF-8")));
-            }
-
-            // 上传文件
-            {
-                File file = new File(strFilePathName);
-                StringBuilder sb = new StringBuilder();
-                sb.append(strBoundaryPrefix);
-                sb.append(strBOUNDARY);
-                sb.append(strNewLine);
-                sb.append("Content-Disposition: form-data;name=\"file\";filename=\"").append(strFilePathName)
-                        .append("\"").append(strNewLine);
-                sb.append("Content-Type:application/octet-stream");
-                sb.append(strNewLine);
-                sb.append(strNewLine);
-                out.write(sb.toString().getBytes());
-
-                try (
-                        DataInputStream dataInputStream = new DataInputStream(new FileInputStream(file));
-                ) {
-                    byte[] byteBufferOut = new byte[1024];
-                    int intBytes = 0;
-                    while ((intBytes = dataInputStream.read(byteBufferOut)) != -1) {
-                        out.write(byteBufferOut, 0, intBytes);
-                    }
-                    out.write(strNewLine.getBytes());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-            // 定义最后数据分隔线，即--加上BOUNDARY再加上--。
-            byte[] byteEndData = (strNewLine + strBoundaryPrefix + strBOUNDARY + strBoundaryPrefix + strNewLine)
-                    .getBytes();
-            // 写上结尾标识
-            out.write(byteEndData);
-            out.flush();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        //定义BufferedReader输入流来读取URL的响应
-        try (
-                InputStream inputStream = httpURLConnection.getInputStream();
-                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-                BufferedReader reader = new BufferedReader(inputStreamReader);
-        ) {
-            String strLine = null;
-            StringBuffer sb = null;
-            while ((strLine = reader.readLine()) != null) {
-                System.out.println(strLine);
-                sb.append(strLine);
-            }
-
-            jsonReturn = JSONObject.fromObject(sb);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return jsonReturn;
-    }
-
-
-    private static final CloseableHttpClient httpclient = HttpClients.createDefault();
-
-    /**
-     * 发送HttpGet请求
-     * @param strURL API的URL地址
-     * @return 响应的字符串内容
-     */
-    public static String sendGet(String strURL) {
-
-
-        HttpGet httpGet = new HttpGet(strURL);
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute(httpGet);
-        } catch (IOException e1) {
-            e1.printStackTrace();
-        }
-        String strResult = null;
-        try {
-            HttpEntity entity = response.getEntity();
-            if (entity != null) {
-                strResult = EntityUtils.toString(entity);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                response.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return strResult;
     }
 
 
