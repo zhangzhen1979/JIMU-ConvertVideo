@@ -7,27 +7,19 @@ import com.thinkdifferent.convertvideo.utils.FtpUtil;
 import com.thinkdifferent.convertvideo.utils.GetFileUtil;
 import com.thinkdifferent.convertvideo.utils.WriteBackUtil;
 import net.sf.json.JSONObject;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.Charset;
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
 public class ConvertVideoServiceImpl implements ConvertVideoService {
 
-    private static Logger logger = LoggerFactory.getLogger(ConvertVideoUtils.class);
+    private static Logger log = LoggerFactory.getLogger(ConvertVideoServiceImpl.class);
 
     /**
      * 将传入的JSON对象中记录的文件，转换为MP4，输出到指定的目录中；回调应用系统接口，将数据写回。
@@ -119,7 +111,7 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
             boolean blnSuccess = convertVideoUtils.setVoidInfos();
 
             if(blnSuccess){
-                logger.info("视频文件[" + strInputPathParam + "]转换成功");
+                log.info("视频文件[" + strInputPathParam + "]转换成功");
 
                 String strMp4FilePathName = strOutPutPath + strMp4FileName + ".mp4";
                 File fileMp4 = new File(strMp4FilePathName);
@@ -184,7 +176,7 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
                 }
 
             }else{
-                logger.info("视频文件[" + strInputPathParam + "]转换失败");
+                log.info("视频文件[" + strInputPathParam + "]转换失败");
             }
 
         }catch(Exception e){

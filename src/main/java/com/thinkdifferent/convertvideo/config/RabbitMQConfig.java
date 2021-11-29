@@ -1,7 +1,7 @@
 package com.thinkdifferent.convertvideo.config;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+//import org.apache.commons.logging.Log;
+//import org.apache.commons.logging.LogFactory;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class RabbitMQConfig
 {
-    public static Log log = LogFactory.getLog(RabbitMQConfig.class.getName());
+//    public static Log log = LogFactory.getLog(RabbitMQConfig.class.getName());
     @Value("${spring.rabbitmq.host}")
     private String host;
 
