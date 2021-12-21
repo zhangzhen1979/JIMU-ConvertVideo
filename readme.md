@@ -140,14 +140,10 @@ MQ异步转换接口URL：http://host:port/api/convert4mq
 ```json
 	"inputType": "url",
 	"inputFile": "http://localhost/file/001.MOV",
-	"inputHeaders": {
-		"Authorization": "Bearer da3efcbf-0845-4fe3-8aba-ee040be542c0"
-	},
 ```
 
 - inputType：必填，值为“path”。
 - inputFile：必填，值为需转换的视频文件（输入文件）在Web服务中的URL地址。
-- inputHeaders：非必填。如果Web服务器访问时需要设置请求头或Token认证，则需要在此处设置请求头的内容；否则此处可不添加。
 
 ## 输出信息
 
@@ -200,42 +196,59 @@ MP4文件生成后，需要回写到业务系统，此处即设置将MP4文件�
 ```json
 	"writeBackType": "ftp",
 	"writeBack": {
+         "passive": "false",
 		"host": "ftp://localhost",
          "port": "21",
          "username": "guest",
          "password": "guest",
-         "basepath": "/mp4/",
          "filepath": "/2021/10/"
 	},
 ```
 
 - writeBackType：必填，值为“ftp”。
 - writeBack：必填。JSON对象。
+  - passive：是否是被动模式。true/false
   - host：ftp服务的访问地址。
   - port：ftp服务的访问端口。
   - username：ftp服务的用户名。
   - password：ftp服务的密码。
-  - basepath：ftp服务中，此用户的根路径。可用于存放上传时生成的临时文件。
-  - filepath：文件所在的下级路径。最终存储的路径为：basepath + filepath 。
+  - filepath：文件所在的路径。
 
 ## 回调信息
 
 业务系统可以提供一个GET方式的回调接口，在视频文件转换、回写完毕后，本服务可以调用此接口，传回处理的状态。
 
 ```json
-	"callBackURL": "http://1234.com/callback.do"
+	"callBackURL": "http://10.11.12.13/callback.do",
+	"callBackHeaders": {
+		"Authorization": "Bearer da3efcbf-0845-4fe3-8aba-ee040be542c0"
+	},
 ```
 
-回调接口需要接收两个参数：
-
-- file：处理后的文件名。本例为“001-online”。
-- flag：处理后的状态，值为：success 或 error。
+- callBackURL：回调接口的URL。回调接口需要接收两个参数：
+  - file：处理后的文件名。本例为“001-online”。
+  - flag：处理后的状态，值为：success 或 error。
+- callBackHeaders：如果回调接口需要在请求头中加入认证信息等，可以在此处设置请求头的参数和值。
 
 接口url示例：
 
-```http
+```
 http://1234.com/callback.do?file=001-online&flag=success
 ```
+
+## 返回信息
+
+接口返回信息示例如下：
+
+```json
+{
+  "flag": "success",
+  "message": "Convert Video to MP4 success."
+}
+```
+
+- flag：处理状态。success，成功；error，错误，失败。
+- message：返回接口消息。
 
 # 代码结构说明
 
@@ -256,4 +269,3 @@ http://1234.com/callback.do?file=001-online&flag=success
 - utils
   - ConvertVideoUtils：调用FFmpeg进行视频格式转换的工具类。
   - PrintStream：将FFmpeg返回的内容实时输出到控制台。
-  - FtpUtil：FTP访问工具，包括上传、下载、删除等。

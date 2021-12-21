@@ -1,10 +1,13 @@
 package com.thinkdifferent.convertvideo.service.impl;
 
+import cn.hutool.core.util.CharsetUtil;
+import cn.hutool.extra.ftp.Ftp;
+import cn.hutool.extra.ftp.FtpConfig;
+import cn.hutool.extra.ftp.FtpMode;
+import cn.hutool.http.HttpUtil;
 import com.thinkdifferent.convertvideo.config.ConvertVideoConfig;
 import com.thinkdifferent.convertvideo.service.ConvertVideoService;
 import com.thinkdifferent.convertvideo.utils.ConvertVideoUtils;
-import com.thinkdifferent.convertvideo.utils.FtpUtil;
-import com.thinkdifferent.convertvideo.utils.GetFileUtil;
 import com.thinkdifferent.convertvideo.utils.WriteBackUtil;
 import net.sf.json.JSONObject;
 import org.slf4j.Logger;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -77,14 +81,8 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
                     fileInput.delete();
                 }
 
-                // 从指定的URL中将文件读取为Byte数组，并写入目标文件
-                Map mapInputHeaders = new HashMap<>();
-                if(parameters.get("inputHeaders") != null){
-                    mapInputHeaders = (Map)parameters.get("inputHeaders");
-                }
-
-                byte[] byteFile = GetFileUtil.getFile(strInputPath, mapInputHeaders);
-                fileInput = GetFileUtil.byte2File(byteFile, strOutPutPath+strInputFileName);
+                // 从指定的URL中将文件读取下载到目标路径
+                HttpUtil.downloadFile(strInputPath, strOutPutPath + strInputFileName);
 
                 strInputPath = strOutPutPath+strInputFileName;
             }
@@ -134,16 +132,46 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
                         jsonReturn = WriteBackUtil.writeBack2Api(strMp4FilePathName, strWriteBackURL, mapWriteBackHeaders);
                     }else if("ftp".equalsIgnoreCase(strWriteBackType)){
                         // ftp回写
+                        boolean blnPassive = jsonWriteBack.getBoolean("passive");
                         String strFtpHost = jsonWriteBack.getString("host");
                         int intFtpPort = jsonWriteBack.getInt("port");
                         String strFtpUserName = jsonWriteBack.getString("username");
                         String strFtpPassWord = jsonWriteBack.getString("password");
-                        String strFtpBasePath = jsonWriteBack.getString("basepath");
                         String strFtpFilePath = jsonWriteBack.getString("filepath");
 
+                        boolean blnFptSuccess = false;
                         FileInputStream in=new FileInputStream(fileMp4);
-                        boolean blnFptSuccess = FtpUtil.uploadFile(strFtpHost, intFtpPort, strFtpUserName, strFtpPassWord,
-                                strFtpBasePath, strFtpFilePath, strMp4FileName + ".mp4", in);
+
+                        Ftp ftp = null;
+                        try {
+                            if(blnPassive){
+                                // 服务器需要代理访问，才能对外访问
+                                FtpConfig ftpConfig = new FtpConfig(strFtpHost, intFtpPort,
+                                        strFtpUserName, strFtpPassWord,
+                                        CharsetUtil.CHARSET_UTF_8);
+                                ftp = new Ftp(ftpConfig, FtpMode.Passive);
+                            }else{
+                                // 服务器不需要代理访问
+                                ftp = new Ftp(strFtpHost, intFtpPort,
+                                        strFtpUserName, strFtpPassWord);
+                            }
+
+                            blnFptSuccess =  ftp.upload(strFtpFilePath, fileMp4.getName(), in);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            try {
+                                if (ftp != null) {
+                                    ftp.close();
+                                }
+
+                                if(in != null){
+                                    in.close();
+                                }
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
 
                         if(blnFptSuccess){
                             jsonReturn.put("flag", "success");
@@ -165,9 +193,17 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
                     // 回调对方系统提供的CallBack方法。
                     if(parameters.get("callBackURL")!=null){
                         String strCallBackURL = String.valueOf(parameters.get("callBackURL"));
-                        strCallBackURL = strCallBackURL + "?file=" + strMp4FileName + "&flag=" + strFlag;
 
-                        WriteBackUtil.sendGet(strCallBackURL);
+                        Map mapCallBackHeaders = new HashMap<>();
+                        if (parameters.get("callBackHeaders") != null) {
+                            mapCallBackHeaders = (Map) parameters.get("callBackHeaders");
+                        }
+
+                        Map mapParams = new HashMap<>();
+                        mapParams.put("file", strMp4FileName);
+                        mapParams.put("flag", strFlag);
+
+                        jsonReturn = callBack(strCallBackURL, mapCallBackHeaders, mapParams);
                     }
 
                 }else{
@@ -185,6 +221,30 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
 
         return jsonReturn;
 
+    }
+
+    /**
+     * 回调业务系统提供的接口
+     * @param strWriteBackURL 回调接口URL
+     * @param mapWriteBackHeaders 请求头参数
+     * @param mapParams 参数
+     * @return JSON格式的返回结果
+     */
+    private static JSONObject callBack(String strWriteBackURL, Map<String,String> mapWriteBackHeaders, Map<String, Object> mapParams){
+        //发送get请求并接收响应数据
+        String strResponse = HttpUtil.createGet(strWriteBackURL).
+                addHeaders(mapWriteBackHeaders).form(mapParams)
+                .execute().body();
+
+        JSONObject jsonReturn = new JSONObject();
+        if(strResponse != null){
+            jsonReturn.put("flag", "success");
+            jsonReturn.put("message", "Convert Office File Callback Success.\n" +
+                    "Message is :\n" +
+                    strResponse);
+        }
+
+        return jsonReturn;
     }
 
 
