@@ -30,28 +30,6 @@ server:
   # 超时时间
   connection-timeout: 5000
 
-
-# log4j2设置
-logging:
-  # 配置文件名
-  config: log4j2.xml
-  level:
-    com.thinkdifferent.core: trace
-
-# 线程设置参数 #######
-ThreadPool:
-  # 核心线程数10：线程池创建时候初始化的线程数
-  CorePoolSize: 10
-  # 最大线程数20：线程池最大的线程数，只有在缓冲队列满了之后才会申请超过核心线程数的线程
-  MaxPoolSize: 20
-  # 缓冲队列200：用来缓冲执行任务的队列
-  QueueCapacity: 200
-  # 保持活动时间60秒
-  KeepAliveSeconds: 60
-  # 允许线程的空闲时间60秒：当超过了核心线程出之外的线程在空闲时间到达之后会被销毁
-  AwaitTerminationSeconds: 60
-
-
 #对于rabbitMQ的支持
 spring:
   # RabbitMQ设置
@@ -75,6 +53,48 @@ spring:
         # 自动启动开关
         auto-startup: false
 
+  application:
+    # 应用名称。如果启用nacos，此值必填
+    name: com.thinkdifferent.convertvideo
+  cloud:
+    # Nacos的配置。
+    # 如果启用Nacos服务作为配置中心，
+    # 则此部分之后的内容均可以在Nacos配置中心中管理，
+    # 不必在此配置文件中维护。
+    nacos:
+      config:
+        # 配置服务地址
+        server-addr: 127.0.0.1:8848
+        # 启用状态
+        enabled: false
+      discovery:
+        # 服务发现服务地址
+        server-addr: 127.0.0.1:8848
+        # 启用状态
+        enabled: false
+
+
+# log4j2设置
+logging:
+  # 配置文件名
+  config: log4j2.xml
+  level:
+    com.thinkdifferent: trace
+
+# 线程设置参数 #######
+ThreadPool:
+  # 核心线程数10：线程池创建时候初始化的线程数
+  CorePoolSize: 10
+  # 最大线程数20：线程池最大的线程数，只有在缓冲队列满了之后才会申请超过核心线程数的线程
+  MaxPoolSize: 20
+  # 缓冲队列200：用来缓冲执行任务的队列
+  QueueCapacity: 200
+  # 保持活动时间60秒
+  KeepAliveSeconds: 60
+  # 允许线程的空闲时间60秒：当超过了核心线程出之外的线程在空闲时间到达之后会被销毁
+  AwaitTerminationSeconds: 60
+
+
 # 本服务设置
 convert:
   video:
@@ -88,6 +108,7 @@ convert:
 
 重点需要修改的内容：
 
+- Nacos服务设置：设置是否启用、服务地址和端口。
 - 线程参数设置：需要根据实际硬件的承载能力，调整线程池的大小。
 - RabbitMQ设置：根据实际软件部署情况，控制是否启用RabbitMQ；如果启用RabbitMQ，一定要根据服务的配置情况修改地址、端口、用户名、密码等信息。
 - 本服务设置：根据本服务所在服务器的实际情况，修改路径和FFmpeg的路径、文件名设置。
