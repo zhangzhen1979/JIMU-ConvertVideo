@@ -1,5 +1,6 @@
 package com.thinkdifferent.convertvideo.controller;
 
+import com.thinkdifferent.convertvideo.config.RabbitMQConfig;
 import com.thinkdifferent.convertvideo.service.ConvertVideoService;
 import com.thinkdifferent.convertvideo.service.RabbitMQService;
 import io.swagger.annotations.Api;
@@ -25,26 +26,23 @@ public class ConvertVideo {
     @Autowired
     private RabbitMQService rabbitMQService;
 
-    @ApiOperation("接收传入的JSON数据，将原文文件转换为Mp4文件")
+    @ApiOperation("接收传入的JSON数据，将文件转换为Mp4文件")
     @RequestMapping(value = "/convert", method = RequestMethod.POST)
     public Map<String, String> data2PDF(@RequestBody JSONObject jsonInput) {
+        JSONObject jsonReturn = new JSONObject();
 
-        JSONObject jsonReturn = convertVideoService.ConvertVideo(jsonInput);
+        if(!RabbitMQConfig.producer){
+            jsonReturn = convertVideoService.ConvertVideo(jsonInput);
+        }else{
+            jsonReturn.put("flag", "success" );
+            jsonReturn.put("message", "Set Data to MQ Success" );
+
+            rabbitMQService.setData2MQ(jsonInput);
+        }
+
 
         return jsonReturn;
     }
 
-
-    @ApiOperation("接收传入的JSON数据，加入到RabbitMQ队列中，队列异步处理，将原文文件转换为Mp4文件")
-    @RequestMapping(value = "/convert4mq", method = RequestMethod.POST)
-    public Map<String, String> data2MQ(@RequestBody JSONObject jsonInput) {
-        Map<String, String> mapReturn = new HashMap<>();
-        mapReturn.put("flag", "success" );
-        mapReturn.put("message", "Set Data to MQ Success" );
-
-        rabbitMQService.setData2MQ(jsonInput);
-
-        return mapReturn;
-    }
 
 }

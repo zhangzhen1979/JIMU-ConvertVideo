@@ -24,9 +24,11 @@ public class ConvertVideoConsumer {
     @RabbitListener(queues  = RabbitMQConfig.QUEUE_RECEIVE)
     public void receiveTodoRequestByMap(String strData){
         try{
-            JSONObject jsonData = JSONObject.fromObject(strData);
-            task.doTask(convertVideoService, jsonData);
-            //	      Thread.currentThread().join();
+            if(RabbitMQConfig.consumer){
+                JSONObject jsonData = JSONObject.fromObject(strData);
+                task.doTask(convertVideoService, jsonData);
+                //	      Thread.currentThread().join();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
