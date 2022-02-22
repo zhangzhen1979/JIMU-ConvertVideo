@@ -117,9 +117,7 @@ convert:
 
 本服务提供REST接口供外部系统调用，提供了直接转换接口和通过MQ异步转换的接口。
 
-直接转换接口URL：[http://host:port/api/convert]()
-
-MQ异步转换接口URL：http://host:port/api/convert4mq
+转换接口URL：[http://host:port/api/convert]()
 
 接口调用方式：POST
 
