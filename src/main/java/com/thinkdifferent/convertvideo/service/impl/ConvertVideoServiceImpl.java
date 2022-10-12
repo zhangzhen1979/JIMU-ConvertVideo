@@ -19,6 +19,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class ConvertVideoServiceImpl implements ConvertVideoService {
@@ -74,7 +75,7 @@ public class ConvertVideoServiceImpl implements ConvertVideoService {
 
             // 如果输入类型是url，则通过http协议读取文件，写入到默认输出路径中
             if("url".equalsIgnoreCase(strInputType)){
-                String strInputFileName = strInputPath.substring(strInputPath.lastIndexOf("/") + 1, strInputPath.length());
+                String strInputFileName = UUID.randomUUID().toString();
                 // 检查目标文件夹中是否有重名文件，如果有，先删除。
                 fileInput = new File(strOutPutPath+strInputFileName);
                 if(fileInput.exists()){
