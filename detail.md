@@ -1,4 +1,4 @@
-**Convert MP4 Service** 
+**Convert Audio & Video Service** 
 
 ---
 
@@ -9,11 +9,11 @@
 
 ---
 
-**视频转换MP4服务**
+**音视频转换服务**
 
 # 简介
 
-本服务用于将各类常见视频文件格式转换为可供在线播放的MP4文件格式。
+本服务用于将各类常见音视频文件格式转换为可供在线播放的MP3、MP4文件格式。
 
 本服务依赖于FFmpeg，需要先行在系统中安装此应用。
 
@@ -224,12 +224,6 @@ convert:
 
 接口调用方式：POST
 
-请求头参数：
-
-| key   | 说明               | 示例                              |
-| ----- | ---------------- | ------------------------------- |
-| token | ecology ssoToken | OEIHGFE29L24J94U24FLKJLFOEU2U33 |
-
 传入参数形式：JSON
 
 示例转换MP4，传入参数：
@@ -331,8 +325,6 @@ convert:
 本例中，即转换后生成名为 001-online.mp4 的文件。
 
 （FFmpeg支持amr, 3gp, 3gpp, aac, ape, aif, au, mid, wma, wav, ra, rm, rmx, vqf, ogg格式转换为MP3）
-
-
 
 ## 输出信息(截图JPG)
 
@@ -448,7 +440,7 @@ convert:
 
 MP4文件生成后，需要回写到业务系统，此处即设置将MP4文件以何种方式，回写到何处。
 
-本服务支持以下回写方式：文件路径（path）、http协议上传（url）、FTP服务上传（ftp）、Ecology接口回写（ecology）。
+本服务支持以下回写方式：文件路径（path）、http协议上传（url）、FTP服务上传（ftp）。
 
 当使用文件路径方式回写时，配置如下：
 
@@ -501,25 +493,6 @@ MP4文件生成后，需要回写到业务系统，此处即设置将MP4文件�
   - password：ftp服务的密码。
   - filepath：文件所在的路径。
 
-当使用Ecology接口（ecology）方式回写时，配置如下：
-
-```json
-    "writeBackType": "ecology",
-    "writeBack": {
-         "address": "http://10.115.92.26",
-         "api": "/api/doc/upload/uploadFile2Doc",
-         "category": "123",
-         "appId": "EEAA5436-7577-4BE0-8C6C-89E9D88805EA"
-    }
-```
-
-- writeBackType：必填，值为“ecology”。
-- writeBack：必填。JSON对象。
-  - address：ecology服务的访问地址
-  - api：文件上传接口的api地址
-  - category：Ecology中存储此类文件的“文档目录”的ID
-  - appId: ecology系统发放的授权许可证(appid)
-
 ## 回调信息
 
 业务系统可以提供一个GET方式的回调接口，在视频文件转换、回写完毕后，本服务可以调用此接口，传回处理的状态。
@@ -549,7 +522,7 @@ http://1234.com/callback.do?file=001-online&flag=success
 ```json
 {
   "flag": "success",
-  "message": "Convert Video to MP4 success."
+  "message": "Convert Video to MP3/MP4 success."
 }
 ```
 

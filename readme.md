@@ -1,8 +1,6 @@
-# convert-video 视频转换MP4服务
+# convert-video 音视频转换MP3、MP4服务
 
 本服务用于将各类常见视频文件格式转换为可供在线播放的MP4文件格式，支持回写、回调等。
-
-V0.6.6： 支持延时重试
 
 ---
 
@@ -17,7 +15,7 @@ V0.6.6： 支持延时重试
 
 * 支持多种文件输入方式：文件路径、http（get）下载、ftp，可扩展
 * 支持多种文件格式：asx，asf，mpg，wmv，3gp，mp4，mov，avi，flv。
-* 支持多种文件回写方式：文件路径（path）、http协议上传（url）、FTP服务上传（ftp）、Ecology接口回写（ecology），可扩展。
+* 支持多种文件回写方式：文件路径（path）、http协议上传（url）、FTP服务上传（ftp），可扩展。
 * 支持转换结果回调
 * 支持失败延迟重试
 
@@ -30,11 +28,9 @@ V0.6.6： 支持延时重试
 
 ## 快速启动
 
-1. 获取`jar`包：联系档案项目组或使用`mvn clean package -Dmaven.test.skip=true`编译,
+1. 使用`mvn clean package -Dmaven.test.skip=true`编译
 
-2. 获取`license`文件：联系档案项目组获取, 试用不需要
-
-3. 修改配置`application.yml`：
+2. 修改配置`application.yml`：
    
    1. 输出文件所在文件夹:`convert.video.outPutPath`:
    
@@ -64,12 +60,12 @@ V0.6.6： 支持延时重试
       > 
       > `convert.retry.max`: 重试次数（0-8），0标识不重试, 若出现异常情况只记录日志， 大于1（最大8）：标识失败重试的次数, 将会在以下时间重试（5min, 10min, 30min, 1h, 2h, 4h, 8h, 16h），例：3, 标识将在5分钟后进行第一次重试，如果还失败，将在10分钟后（即初次转换15分钟后）进行第二次重试. 如果还失败，将在30分钟后（即初次转换45分钟后）进行第三次重试
 
-4. 确认文件目录结构
+3. 确认文件目录结构
 
 ```
 │  application.yml
 │  convertvideo-{版本号}.jar
-│  {项目名}.license
+│  conf（文件夹）
 ```
 
 5. 以管理员身份运行
