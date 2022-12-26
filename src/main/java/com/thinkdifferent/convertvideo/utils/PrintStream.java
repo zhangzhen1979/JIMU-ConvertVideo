@@ -1,5 +1,8 @@
 package com.thinkdifferent.convertvideo.utils;
 
+import lombok.extern.log4j.Log4j2;
+
+@Log4j2
 public class PrintStream extends Thread {
     java.io.InputStream __is = null;
 
@@ -16,7 +19,7 @@ public class PrintStream extends Thread {
                 else break;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("PrintStream", e);
         }
     }
 }

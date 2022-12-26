@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <default>-i ${inputFile} -c:v libx264 -mbd 0 -c:a aac -strict -2 -pix_fmt yuv420p -movflags faststart -y ${outputFile}</default>
+</root>

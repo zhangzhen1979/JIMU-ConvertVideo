@@ -1,290 +1,95 @@
-**Convert MP4 Service** 
+# convert-video 视频转换MP4服务
 
-**视频转换MP4服务**
+本服务用于将各类常见视频文件格式转换为可供在线播放的MP4文件格式，支持回写、回调等。
 
-# 简介
+V0.6.6： 支持延时重试
 
-本服务用于将各类常见视频文件格式转换为可供在线播放的MP4文件格式。
+---
 
-本服务依赖于FFmpeg，需要先行在系统中安装此应用。
+## 说明文档
 
-FFmpeg的官方网址：http://www.ffmpeg.org/
+[![快速开始](https://img.shields.io/badge/%E8%AF%95%E7%94%A8-%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B-blue.svg)](readme.md)
+[![详细介绍](https://img.shields.io/badge/%E6%8E%A5%E5%8F%A3-%E8%AF%A6%E7%BB%86%E4%BB%8B%E7%BB%8D-blue.svg)](detail.md)
 
-FFMpeg下载地址：
-1：https://github.com/BtbN/FFmpeg-Builds/releases
-2：https://www.gyan.dev/ffmpeg/builds/
+---
 
-# 配置说明
+## 特性
 
-本服务的所有配置信息均在于jar包同级文件夹中的application.yml中，默认内容如下：
+* 支持多种文件输入方式：文件路径、http（get）下载、ftp，可扩展
+* 支持多种文件格式：asx，asf，mpg，wmv，3gp，mp4，mov，avi，flv。
+* 支持多种文件回写方式：文件路径（path）、http协议上传（url）、FTP服务上传（ftp）、Ecology接口回写（ecology），可扩展。
+* 支持转换结果回调
+* 支持失败延迟重试
 
-```yml
-# Tomcat
-server:
-  tomcat:
-    uri-encoding: UTF-8
-    max-threads: 1000
-    min-spare-threads: 30
-  # 端口号
-  port: 8080
-  # 超时时间
-  connection-timeout: 5000
+## 依赖
 
-#对于rabbitMQ的支持
-spring:
-  # RabbitMQ设置
-  rabbitmq:
-    # 访问地址
-    host: 127.0.0.1
-    # 端口
-    port: 5672
-    # 用户名
-    username: guest
-    # 密码
-    password: guest
-    # 监听设置
-    listener:
-      # 生产者
-      direct:
-        # 自动启动开关
-        auto-startup: false
-      # 消费者
-      simple:
-        # 自动启动开关
-        auto-startup: false
+* `jdk8`: 编译、运行环境
+* `maven`: 编译打包，只运行`jar`不需要，建议`V3.6.3`以上版本
+* `FFmpeg`: 视频转换工具， [官网](http://www.ffmpeg.org/)
+* `rabbitMQ`: 重试机制依赖MQ延迟队列，需安装插件 `rabbitmq_delayed_message_exchange`
 
-  application:
-    # 应用名称。如果启用nacos，此值必填
-    name: com.thinkdifferent.convertvideo
-  cloud:
-    # Nacos的配置。
-    # 如果启用Nacos服务作为配置中心，
-    # 则此部分之后的内容均可以在Nacos配置中心中管理，
-    # 不必在此配置文件中维护。
-    nacos:
-      config:
-        # 配置服务地址
-        server-addr: 127.0.0.1:8848
-        # 启用状态
-        enabled: false
-      discovery:
-        # 服务发现服务地址
-        server-addr: 127.0.0.1:8848
-        # 启用状态
-        enabled: false
+## 快速启动
 
+1. 获取`jar`包：联系档案项目组或使用`mvn clean package -Dmaven.test.skip=true`编译,
 
-# log4j2设置
-logging:
-  # 配置文件名
-  config: log4j2.xml
-  level:
-    com.thinkdifferent: trace
+2. 获取`license`文件：联系档案项目组获取, 试用不需要
 
-# 线程设置参数 #######
-ThreadPool:
-  # 核心线程数10：线程池创建时候初始化的线程数
-  CorePoolSize: 10
-  # 最大线程数20：线程池最大的线程数，只有在缓冲队列满了之后才会申请超过核心线程数的线程
-  MaxPoolSize: 20
-  # 缓冲队列200：用来缓冲执行任务的队列
-  QueueCapacity: 200
-  # 保持活动时间60秒
-  KeepAliveSeconds: 60
-  # 允许线程的空闲时间60秒：当超过了核心线程出之外的线程在空闲时间到达之后会被销毁
-  AwaitTerminationSeconds: 60
+3. 修改配置`application.yml`：
+   
+   1. 输出文件所在文件夹:`convert.video.outPutPath`:
+   
+   > Windows： D:/work/temp
+   > 
+   > Linux： /work/temp/
+   
+   2. ffmpeg所在文件夹和文件名: `convert.video.ffmpegPath`:
+   
+   > Windows： C:/Program Files (x86)/FormatFactory/ffmpeg.exe
+   > 
+   > Linux： /app/ffmpeg.sh
+   
+   3. 如需支持失败重试功能，需启用 RabbitMQ 功能
+      
+      > `spring.rabbitmq.host`: RabbitMQ IP地址， 例：10.3.214.12
+      > 
+      > `spring.rabbitmq.port`: RabbitMQ 端口号, 例： 5672
+      > 
+      > `spring.rabbitmq.username`: RabbitMQ 用户名, 例： guest
+      > 
+      > `spring.rabbitmq.password`: RabbitMQ 用户密码, 例： guest
+      > 
+      > `spring.rabbitmq.listener.direct.auto-startup`: RabbitMQ 生产者 开关, 例： true | false, true: 标识启用功能
+      > 
+      > `spring.rabbitmq.listener.simple.auto-startup`: RabbitMQ 消费者 开关, 例： true | false, true: 标识启用功能
+      > 
+      > `convert.retry.max`: 重试次数（0-8），0标识不重试, 若出现异常情况只记录日志， 大于1（最大8）：标识失败重试的次数, 将会在以下时间重试（5min, 10min, 30min, 1h, 2h, 4h, 8h, 16h），例：3, 标识将在5分钟后进行第一次重试，如果还失败，将在10分钟后（即初次转换15分钟后）进行第二次重试. 如果还失败，将在30分钟后（即初次转换45分钟后）进行第三次重试
 
-
-# 本服务设置
-convert:
-  video:
-    # 输出文件所在文件夹
-    outPutPath: D:/cvtest/
-    # ffmpeg所在文件夹和文件名
-    ffmpegPath: C:/Program Files (x86)/FormatFactory/ffmpeg.exe
-```
-
-可以根据服务器的实际情况进行修改。
-
-重点需要修改的内容：
-
-- Nacos服务设置：设置是否启用、服务地址和端口。
-- 线程参数设置：需要根据实际硬件的承载能力，调整线程池的大小。
-- RabbitMQ设置：根据实际软件部署情况，控制是否启用RabbitMQ；如果启用RabbitMQ，一定要根据服务的配置情况修改地址、端口、用户名、密码等信息。
-- 本服务设置：根据本服务所在服务器的实际情况，修改路径和FFmpeg的路径、文件名设置。
-
-# 使用说明
-
-本服务提供REST接口供外部系统调用，提供了直接转换接口和通过MQ异步转换的接口。
-
-转换接口URL：[http://host:port/api/convert]()
-
-接口调用方式：POST
-
-传入参数形式：JSON
-
-传入参数示例：
-
-```JSON
-{
-	"inputType": "path",
-	"inputFile": "D:/cvtest/001.MOV",
-	"mp4FileName": "001-online",
-	"writeBackType": "path",
-	"writeBack": {
-		"path": "D:/cvtest/"
-	},
-	"callBackURL": "http://1234.com/callback.do"
-}
-```
-
-以下分块解释传入参数每部分的内容。
-
-## 输入信息
-
-系统支持本地文件路径输入（path）和http协议的url文件下载输入（url）。
-
-当使用文件路径输入时，配置示例如下：
-
-```json
-	"inputType": "path",
-	"inputFile": "D:/cvtest/001.MOV",
-```
-
-- inputType：必填，值为“path”。
-- inputFile：必填，值为需转换的视频文件（输入文件）在当前服务器中的路径和文件名。
-
-当使用url文件下载输入时，配置示例如下：
-
-```json
-	"inputType": "url",
-	"inputFile": "http://localhost/file/001.MOV",
-```
-
-- inputType：必填，值为“path”。
-- inputFile：必填，值为需转换的视频文件（输入文件）在Web服务中的URL地址。
-
-## 输出信息
-
-可以设置输出的MP4文件的文件名（无扩展名），如下：
-
-```json
-	"mp4FileName": "001-online",
-```
-
-- mp4FileName：必填，为MP4文件生成后的文件名（无扩展名）。
-
-本例中，即转换后生成名为 001-online.mp4 的文件。
-
-## 回写信息
-
-MP4文件生成后，需要回写到业务系统，此处即设置将MP4文件以何种方式，回写到何处。
-
-本服务支持以下回写方式：文件路径（path）、http协议上传（url）、FTP服务上传（ftp）。
-
-当使用文件路径方式回写时，配置如下：
-
-```json
-	"writeBackType": "path",
-	"writeBack": {
-		"path": "D:/cvtest/"
-	},
-```
-
-- writeBackType：必填，值为“path”。
-- writeBack：必填。JSON对象，path方式中，key为“path”，value为MP4文件回写的路径。
-
-当使用http协议上传方式回写时，配置如下：
-
-```json
-	"writeBackType": "url",
-	"writeBack": {
-		"url": "http://localhost/uploadfile.do"
-	},
-	"writeBackHeaders": {
-		"Authorization": "Bearer da3efcbf-0845-4fe3-8aba-ee040be542c0"
-	},
-```
-
-- writeBackType：必填，值为“url”。
-- writeBack：必填。JSON对象，url方式中，key为“url”，value为业务系统提供的文件上传接口API地址。
-- writeBackHeaders：非必填。如果Web服务器访问时需要设置请求头或Token认证，则需要在此处设置请求头的内容；否则此处可不添加。
-
-当使用FTP服务上传方式回写时，配置如下：
-
-```json
-	"writeBackType": "ftp",
-	"writeBack": {
-         "passive": "false",
-		"host": "ftp://localhost",
-         "port": "21",
-         "username": "guest",
-         "password": "guest",
-         "filepath": "/2021/10/"
-	},
-```
-
-- writeBackType：必填，值为“ftp”。
-- writeBack：必填。JSON对象。
-  - passive：是否是被动模式。true/false
-  - host：ftp服务的访问地址。
-  - port：ftp服务的访问端口。
-  - username：ftp服务的用户名。
-  - password：ftp服务的密码。
-  - filepath：文件所在的路径。
-
-## 回调信息
-
-业务系统可以提供一个GET方式的回调接口，在视频文件转换、回写完毕后，本服务可以调用此接口，传回处理的状态。
-
-```json
-	"callBackURL": "http://10.11.12.13/callback.do",
-	"callBackHeaders": {
-		"Authorization": "Bearer da3efcbf-0845-4fe3-8aba-ee040be542c0"
-	},
-```
-
-- callBackURL：回调接口的URL。回调接口需要接收两个参数：
-  - file：处理后的文件名。本例为“001-online”。
-  - flag：处理后的状态，值为：success 或 error。
-- callBackHeaders：如果回调接口需要在请求头中加入认证信息等，可以在此处设置请求头的参数和值。
-
-接口url示例：
+4. 确认文件目录结构
 
 ```
-http://1234.com/callback.do?file=001-online&flag=success
+│  application.yml
+│  convertvideo-{版本号}.jar
+│  {项目名}.license
 ```
 
-## 返回信息
+5. 以管理员身份运行
+   
+   > Windows： javaw -jar convertvideo-{版本号}.jar
+   > 
+   > Linux： nohup java -jar convertvideo-{版本号}.jar &
 
-接口返回信息示例如下：
+6. 浏览器访问 `http://{ip}:{端口}` , 返回 **启动成功** 标识项目启动正常
 
-```json
-{
-  "flag": "success",
-  "message": "Convert Video to MP4 success."
-}
-```
+## 常见问题
 
-- flag：处理状态。success，成功；error，错误，失败。
-- message：返回接口消息。
+1. 项目日志在哪里？
+   
+   运行目录下logs文件夹内
 
-# 代码结构说明
+2. 项目启动失败，日志中有`The Tomcat connector configured to listen on port 8080 failed to start. The port may already be in use or the connector may be misconfigured.`的报错
+   
+   端口被占用，修改`application.yml`中`server.port`, 改为其他端口
 
-本项目所有代码均在  com.thinkdifferent.convertvideo 之下，包含如下内容：
-
-- config
-  - ConvertVideoConfig：本服务自有配置读取。
-  - RabbitMQConfig：RabbitMQ服务配置读取。
-- consumer
-  - ConvertVideoConsumer：MQ消费者，消费队列中传入的JSON参数，执行任务（Task）。
-- controller
-  - ConvertVideo：REST接口，提供直接转换接口，和调用MQ异步转换的接口。
-- service
-  - ConvertVideoService：视频文件格式转换、文件回写上传、接口回调等核心逻辑处理。
-  - RabbitMQService：将JSON消息加入到队列中的服务层处理。
-- task
-  - Task：异步多线程任务，供MQ消费者调用，最大限度的提升并行能力。
-- utils
-  - ConvertVideoUtils：调用FFmpeg进行视频格式转换的工具类。
-  - PrintStream：将FFmpeg返回的内容实时输出到控制台。
+3. Windows `...  libx264  ...` 错误
+   
+   ffmpeg缺少依赖包, 重新下载[全量编译包](https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z) 替换即可

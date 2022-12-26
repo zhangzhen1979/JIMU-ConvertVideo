@@ -1,16 +1,31 @@
 # Tomcat
 server:
-  tomcat:
-    uri-encoding: UTF-8
-    max-threads: 1000
-    min-spare-threads: 30
   # 端口号
   port: 8080
-  # 超时时间
-  connection-timeout: 5000
+  tomcat:
+    uri-encoding: UTF-8
+    threads:
+      max: 1000
+      min-spare: 30
+    # 超时时间
+    connection-timeout: 5000
 
-#对于rabbitMQ的支持
+#开放端点用于SpringBoot Admin的监控
+management:
+  health:
+    rabbit:
+      # 是否检测rabbit
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+
 spring:
+  boot:
+    admin:
+      client:
+        url: http://localhost:9999
   # RabbitMQ设置
   rabbitmq:
     # 访问地址
@@ -34,7 +49,7 @@ spring:
 
   application:
     # 应用名称。如果启用nacos，此值必填
-    name: com.thinkdifferent.convertvideo
+    name: convertVideo
   cloud:
     # Nacos的配置。
     # 如果启用Nacos服务作为配置中心，
@@ -55,10 +70,12 @@ spring:
 
 # log4j2设置
 logging:
-  # 配置文件名
-  config: log4j2.xml
   level:
-    com.thinkdifferent: trace
+    root: info
+    com.thinkdifferent: debug
+    de.codecentric.boot.admin.client: error
+  file:
+    name: logs/application.log
 
 # 线程设置参数 #######
 ThreadPool:
@@ -76,8 +93,48 @@ ThreadPool:
 
 # 本服务设置
 convert:
+  # 重试功能需启用MQ才有效
+  retry:
+    # 最大重试次数（0-8）, 0标识不重试, 若异常情况只记录日志， 大于1（最大8）：标识失败进行重试的次数, 将会在以下时间重试（5min, 10min, 30min, 1h, 2h, 4h, 8h, 16h）
+    max: 3
   video:
+    # 接收的输入文件存储的临时文件夹
+    inPutTempPath: D:/cvtest/temp/
     # 输出文件所在文件夹
     outPutPath: D:/cvtest/
-    # ffmpeg所在文件夹和文件名
-    ffmpegPath: C:/Program Files (x86)/FormatFactory/ffmpeg.exe
+    # ffmpeg相关设置
+    ffmpeg:
+      # ffmpeg所在文件夹和文件名
+      file: C:/Program Files (x86)/FormatFactory/ffmpeg.exe
+      # 可以使用的CPU进程数量。设置为0，则使用全部CPU资源
+      threads: 0
+      # 视频编码格式。设置为空，则默认使用libx264编码
+      videoCode:
+      # 帧率。设置为0，则使用原视频的帧率
+      fps: 0
+      # 分辨率。如：640*480。设置为空，则使用原视频的分辨率
+      resolution:
+      # 音频编码格式。设置为空，则默认使用aac编码
+      audioCode:
+      # 图片水印设置
+      picMark:
+        # 水印图片位置
+        picFile: d:/cvtest/watermark.png
+        # 水印位置。第一个参数表示水印距离视频左边的距离，第二个参数表示水印距离视频上边的距离
+        overlay: 500:500
+        # 水印缩放参数。缩放后的width和height
+        scale: 100:100
+      # 文字水印设置
+      textMark:
+        # 字体文件位置
+        fontFile: simhei.ttf
+        # 水印文字内容
+        text: XX公司
+        # 水印横坐标
+        localX: 100
+        # 水印纵坐标
+        localY: 10
+        # 文字大小
+        fontSize: 24
+        # 文字颜色
+        fontColor: yellow

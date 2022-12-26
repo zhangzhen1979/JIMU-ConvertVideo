@@ -1,34 +1,44 @@
 package com.thinkdifferent.convertvideo.utils;
 
-import net.sf.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.thinkdifferent.convertvideo.entity.WriteBackResult;
+import com.thinkdifferent.convertvideo.entity.writeback.WriteBack;
+import lombok.extern.log4j.Log4j2;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Map;
+import java.util.Objects;
 
+@Log4j2
 public class WriteBackUtil {
 
-    private static Logger logger = LoggerFactory.getLogger(WriteBackUtil.class);
+    /**
+     * 回写
+     *
+     * @param writeBack 回写对象
+     * @param fileOut   输出文件
+     * @return jo
+     */
+    public static WriteBackResult writeBack(WriteBack writeBack, File fileOut) {
+        if (Objects.isNull(writeBack)) {
+            return new WriteBackResult(true);
+        }
+        return writeBack.writeBack(fileOut);
+    }
 
     /**
      * 调用API接口，将文件上传
+     *
      * @param strFilePathName 文件路径和文件名
-     * @param strUrl API接口的URL
-     * @param mapHeader Header参数
+     * @param strUrl          API接口的URL
+     * @param mapHeader       Header参数
      * @return 接口返回的JSON
      * @throws Exception
      */
-    public static JSONObject writeBack2Api(String strFilePathName, String strUrl, Map<String, Object> mapHeader)
+    public static WriteBackResult writeBack2Api(String strFilePathName, String strUrl, Map<String, String> mapHeader)
             throws Exception {
-
-        JSONObject jsonReturn = new JSONObject();
-        jsonReturn.put("flag", "error");
-        jsonReturn.put("message", "Call Back Error. URL = " + strUrl);
-
         // 换行符
         final String strNewLine = "\r\n";
         final String strBoundaryPrefix = "--";
@@ -54,7 +64,7 @@ public class WriteBackUtil {
             //传递参数
             if (mapHeader != null) {
                 StringBuilder stringBuilder = new StringBuilder();
-                for (Map.Entry<String, Object> entry : mapHeader.entrySet()) {
+                for (Map.Entry<String, String> entry : mapHeader.entrySet()) {
                     stringBuilder.append(strBoundaryPrefix)
                             .append(strBOUNDARY)
                             .append(strNewLine)
@@ -90,8 +100,6 @@ public class WriteBackUtil {
                         out.write(byteBufferOut, 0, intBytes);
                     }
                     out.write(strNewLine.getBytes());
-                } catch (Exception e) {
-                    e.printStackTrace();
                 }
             }
 
@@ -102,8 +110,6 @@ public class WriteBackUtil {
             out.write(byteEndData);
             out.flush();
 
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         //定义BufferedReader输入流来读取URL的响应
@@ -113,19 +119,14 @@ public class WriteBackUtil {
                 BufferedReader reader = new BufferedReader(inputStreamReader);
         ) {
             String strLine;
-            StringBuffer sb = null;
+            StringBuilder sb = new StringBuilder();
             while ((strLine = reader.readLine()) != null) {
-                logger.error(strLine);
                 sb.append(strLine);
             }
 
-            jsonReturn = JSONObject.fromObject(sb);
+            return new WriteBackResult(true, sb.toString());
 
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
-        return jsonReturn;
     }
-
 }

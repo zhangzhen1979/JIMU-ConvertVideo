@@ -1,251 +1,186 @@
 package com.thinkdifferent.convertvideo.service.impl;
 
-import cn.hutool.core.util.CharsetUtil;
-import cn.hutool.extra.ftp.Ftp;
-import cn.hutool.extra.ftp.FtpConfig;
-import cn.hutool.extra.ftp.FtpMode;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
+import cn.hutool.system.OsInfo;
 import com.thinkdifferent.convertvideo.config.ConvertVideoConfig;
+import com.thinkdifferent.convertvideo.config.SystemConstants;
+import com.thinkdifferent.convertvideo.entity.CallBackResult;
+import com.thinkdifferent.convertvideo.entity.ConvertEntity;
+import com.thinkdifferent.convertvideo.entity.WriteBackResult;
 import com.thinkdifferent.convertvideo.service.ConvertVideoService;
+import com.thinkdifferent.convertvideo.service.RabbitMQService;
 import com.thinkdifferent.convertvideo.utils.ConvertVideoUtils;
 import com.thinkdifferent.convertvideo.utils.WriteBackUtil;
+import lombok.extern.log4j.Log4j2;
 import net.sf.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
+@Log4j2
 public class ConvertVideoServiceImpl implements ConvertVideoService {
 
-    private static Logger log = LoggerFactory.getLogger(ConvertVideoServiceImpl.class);
+    @Autowired
+    private RabbitMQService rabbitMQService;
 
     /**
-     * 将传入的JSON对象中记录的文件，转换为MP4，输出到指定的目录中；回调应用系统接口，将数据写回。
+     * 异步处理转换
+     *
      * @param parameters 输入的参数，JSON格式数据对象
      */
-    public JSONObject ConvertVideo(Map<String, Object> parameters){
-        JSONObject jsonReturn =  new JSONObject();
-        jsonReturn.put("flag", "error");
-        jsonReturn.put("message", "Convert Video to MP4 Error.");
+    @Async
+    @Override
+    public void asyncConvertVideo(Map<String, Object> parameters) {
+        CallBackResult callBackResult = convertVideo(parameters);
+        if (callBackResult.isFlag()) {
+            // 成功，清理失败记录
+            SystemConstants.removeErrorData((JSONObject) parameters);
+        } else {
+            // 异常情况重试
+            rabbitMQService.setRetryData2MQ((JSONObject) parameters);
+        }
+    }
 
-        try{
-
-            /**
-             * 输入参数的JSON示例
-             *{
-             * 	"inputType": "path",
-             * 	"inputFile": "D:/cvtest/001.MOV",
-             * 	"inputHeaders":
-             *  {
-             *     		"Authorization":"Bearer da3efcbf-0845-4fe3-8aba-ee040be542c0"
-             *   },
-             * 	"mp4FileName": "001-online",
-             * 	"writeBackType": "path",
-             * 	"writeBack":
-             *   {
-             *     		"path":"D:/cvtest/"
-             *   },
-             * 	"writeBackHeaders":
-             *   {
-             *     		"Authorization":"Bearer da3efcbf-0845-4fe3-8aba-ee040be542c0"
-             *   },
-             * 	"callBackURL": "http://1234.com/callback"
-             * }
-             */
-            // 输入类型（path/url）
-            String strInputType = String.valueOf(parameters.get("inputType"));
-            // 输入文件（"D:/cvtest/001.MOV"）
-            String strInputPath = String.valueOf(parameters.get("inputFile"));
-            String strInputPathParam = strInputPath;
-            // 默认输出路径
-            String strOutPutPath = ConvertVideoConfig.outPutPath;
-            strOutPutPath = strOutPutPath.replaceAll("\\\\", "/");
-            if(!strOutPutPath.endsWith("/")){
-                strOutPutPath = strOutPutPath + "/";
-            }
-
-            File fileInput = null;
-
-            // 如果输入类型是url，则通过http协议读取文件，写入到默认输出路径中
-            if("url".equalsIgnoreCase(strInputType)){
-                String strInputFileName = UUID.randomUUID().toString();
-                // 检查目标文件夹中是否有重名文件，如果有，先删除。
-                fileInput = new File(strOutPutPath+strInputFileName);
-                if(fileInput.exists()){
-                    fileInput.delete();
-                }
-
-                // 从指定的URL中将文件读取下载到目标路径
-                HttpUtil.downloadFile(strInputPath, strOutPutPath + strInputFileName);
-
-                strInputPath = strOutPutPath+strInputFileName;
-            }
-
-
-            // ffmpeg程序所在路径和文件名
-            String strFFmpegPath = ConvertVideoConfig.ffmpegPath;
-            // 转换出来的mp4的文件名（不包含扩展名）（"001-online"）
-            String strMp4FileName = String.valueOf(parameters.get("mp4FileName"));
-            // 文件回写方式（回写路径[path]/回写接口[api]/ftp回写[ftp]）
-            String strWriteBackType = "path";
-            JSONObject jsonWriteBack = new JSONObject();
-            if(parameters.get("writeBackType")!=null){
-                strWriteBackType = String.valueOf(parameters.get("writeBackType"));
-
-                // 回写接口或回写路径
-                jsonWriteBack = JSONObject.fromObject(parameters.get("writeBack"));
-                if("path".equalsIgnoreCase(strWriteBackType)){
-                    strOutPutPath = jsonWriteBack.getString("path");
-                }
-            }
-
-            ConvertVideoUtils convertVideoUtils = new ConvertVideoUtils(strInputPath, strOutPutPath, strFFmpegPath, strMp4FileName);
+    /**
+     * V2 版本
+     * 将传入的JSON对象中记录的文件，转换为MP4，输出到指定的目录中；回调应用系统接口，将数据写回。
+     *
+     * @param parameters 输入的参数，JSON格式数据对象
+     */
+    @Override
+    public CallBackResult convertVideo(Map<String, Object> parameters) {
+        try {
+            // 参数转换
+            ConvertEntity convertEntity = new ConvertEntity().of(parameters);
+            // 下载文件
+            File inputFile = convertEntity.getInput().getInputFile();
+            // 将传入的文件转换为MP4文件，存放到输出路径中
+            ConvertVideoUtils convertVideoUtils = new ConvertVideoUtils(inputFile.getCanonicalPath(),
+                    convertEntity);
+            // 转换结果
             boolean blnSuccess = convertVideoUtils.setVoidInfos();
 
-            if(blnSuccess){
-                log.info("视频文件[" + strInputPathParam + "]转换成功");
+            File fileOut = new File(convertEntity.getWriteBack().getOutputPath() + convertEntity.getOutPutFileName() + "." + convertVideoUtils.getExt());
 
-                String strMp4FilePathName = strOutPutPath + strMp4FileName + ".mp4";
-                File fileMp4 = new File(strMp4FilePathName);
-
-                if("url".equalsIgnoreCase(strInputType)) {
-                    if (fileInput.exists()) {
-                        fileInput.delete();
+            // 转换结果回写
+            WriteBackResult writeBackResult = new WriteBackResult(true);
+            // 校验文件有效性
+            if (blnSuccess && checkMp4File(fileOut)) {
+                // 回调对方系统
+                writeBackResult = WriteBackUtil.writeBack(convertEntity.getWriteBack(), fileOut);
+                if (writeBackResult.isFlag()) {
+                    // 不需要回写 （转换失败） 回写成功   都意味着回写操作完成
+                    if (StringUtils.isBlank(writeBackResult.getFile())) {
+                        writeBackResult.setFile(fileOut.getName());
                     }
                 }
-
-                if(!"path".equalsIgnoreCase(strWriteBackType)){
-                   // 回写文件
-                    Map mapWriteBackHeaders = new HashMap<>();
-                    if(parameters.get("writeBackHeaders") != null){
-                        mapWriteBackHeaders = (Map)parameters.get("writeBackHeaders");
-                    }
-
-                    if("url".equalsIgnoreCase(strWriteBackType)){
-                        String strWriteBackURL = jsonWriteBack.getString("url");
-                        jsonReturn = WriteBackUtil.writeBack2Api(strMp4FilePathName, strWriteBackURL, mapWriteBackHeaders);
-                    }else if("ftp".equalsIgnoreCase(strWriteBackType)){
-                        // ftp回写
-                        boolean blnPassive = jsonWriteBack.getBoolean("passive");
-                        String strFtpHost = jsonWriteBack.getString("host");
-                        int intFtpPort = jsonWriteBack.getInt("port");
-                        String strFtpUserName = jsonWriteBack.getString("username");
-                        String strFtpPassWord = jsonWriteBack.getString("password");
-                        String strFtpFilePath = jsonWriteBack.getString("filepath");
-
-                        boolean blnFptSuccess = false;
-                        FileInputStream in=new FileInputStream(fileMp4);
-
-                        Ftp ftp = null;
-                        try {
-                            if(blnPassive){
-                                // 服务器需要代理访问，才能对外访问
-                                FtpConfig ftpConfig = new FtpConfig(strFtpHost, intFtpPort,
-                                        strFtpUserName, strFtpPassWord,
-                                        CharsetUtil.CHARSET_UTF_8);
-                                ftp = new Ftp(ftpConfig, FtpMode.Passive);
-                            }else{
-                                // 服务器不需要代理访问
-                                ftp = new Ftp(strFtpHost, intFtpPort,
-                                        strFtpUserName, strFtpPassWord);
-                            }
-
-                            blnFptSuccess =  ftp.upload(strFtpFilePath, fileMp4.getName(), in);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        } finally {
-                            try {
-                                if (ftp != null) {
-                                    ftp.close();
-                                }
-
-                                if(in != null){
-                                    in.close();
-                                }
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                        if(blnFptSuccess){
-                            jsonReturn.put("flag", "success");
-                            jsonReturn.put("message", "Upload MP4 file to FTP success.");
-                        }else{
-                            jsonReturn.put("flag", "error");
-                            jsonReturn.put("message", "Upload MP4 file to FTP error.");
-                        }
-
-                    }
-
-                    String strFlag = jsonReturn.getString("flag");
-                    if("success".equalsIgnoreCase(strFlag)){
-                        if(fileMp4.exists()){
-                            fileMp4.delete();
-                        }
-                    }
-
-                    // 回调对方系统提供的CallBack方法。
-                    if(parameters.get("callBackURL")!=null){
-                        String strCallBackURL = String.valueOf(parameters.get("callBackURL"));
-
-                        Map mapCallBackHeaders = new HashMap<>();
-                        if (parameters.get("callBackHeaders") != null) {
-                            mapCallBackHeaders = (Map) parameters.get("callBackHeaders");
-                        }
-
-                        Map mapParams = new HashMap<>();
-                        mapParams.put("file", strMp4FileName);
-                        mapParams.put("flag", strFlag);
-
-                        jsonReturn = callBack(strCallBackURL, mapCallBackHeaders, mapParams);
-                    }
-
-                }else{
-                    jsonReturn.put("flag", "success");
-                    jsonReturn.put("message", "Convert Video to MP4 success.");
-                }
-
-            }else{
-                log.info("视频文件[" + strInputPathParam + "]转换失败");
+            } else {
+                // 转换错误，回调
+                writeBackResult.setFlag(false).setMessage("转换视频文件/截图失败");
             }
+            CallBackResult callBackResult = callBack(convertEntity.getCallBackURL(), convertEntity.getCallBackHeaders(), writeBackResult);
 
-        }catch(Exception e){
-            e.printStackTrace();
+            // 清理文件
+            if (!"path".equalsIgnoreCase(convertEntity.getWriteBackType().name())) {
+                FileUtil.del(fileOut);
+            }
+            return callBackResult;
+        } catch (Exception e) {
+            log.error("文件[" + parameters.get("inputFile") + "]转换/截图失败", e);
+            return new CallBackResult(false, e.getMessage());
         }
+    }
 
-        return jsonReturn;
-
+    /**
+     * 检测传入的对象是否正确, 不正确抛出异常，可获取异常信息返回
+     *
+     * @param jsonInput 传入的参数
+     */
+    @Override
+    public void checkParams(JSONObject jsonInput) {
+        // 参数转换
+        ConvertEntity convertEntity = new ConvertEntity().of(jsonInput);
+        // 判断文件是否存在
+        if (!convertEntity.getInput().exist()) {
+            throw new RuntimeException("文件不存在");
+        }
     }
 
     /**
      * 回调业务系统提供的接口
-     * @param strWriteBackURL 回调接口URL
+     *
+     * @param strCallBackURL      回调接口URL
      * @param mapWriteBackHeaders 请求头参数
-     * @param mapParams 参数
-     * @return JSON格式的返回结果
+     * @param writeBackResult     参数
      */
-    private static JSONObject callBack(String strWriteBackURL, Map<String,String> mapWriteBackHeaders, Map<String, Object> mapParams){
-        //发送get请求并接收响应数据
-        String strResponse = HttpUtil.createGet(strWriteBackURL).
-                addHeaders(mapWriteBackHeaders).form(mapParams)
-                .execute().body();
-
-        JSONObject jsonReturn = new JSONObject();
-        if(strResponse != null){
-            jsonReturn.put("flag", "success");
-            jsonReturn.put("message", "Convert Office File Callback Success.\n" +
-                    "Message is :\n" +
-                    strResponse);
+    private static CallBackResult callBack(String strCallBackURL, Map<String, String> mapWriteBackHeaders, WriteBackResult writeBackResult) {
+        if (StringUtils.isBlank(strCallBackURL)) {
+            return new CallBackResult(true, "Convert Video to MP4 success.");
         }
+        //发送get请求并接收响应数据
+        try (HttpResponse httpResponse = HttpUtil.createGet(strCallBackURL).
+                addHeaders(mapWriteBackHeaders).form(writeBackResult.bean2Map())
+                .execute()) {
+            String body = httpResponse.body();
+            log.info("回调请求地址:{}, 请求体:{},状态码：{}，结果：{}", strCallBackURL, writeBackResult, httpResponse.isOk(), body);
+            if (httpResponse.isOk() && writeBackResult.isFlag()) {
+                // 回调成功且转换成功，任务才会结束
+                return new CallBackResult(true, "Convert Video to MP4 Callback Success.\n" +
+                        "Message is :\n" +
+                        body);
+            } else {
+                return new CallBackResult(false, "CallBack error, resp: " + body + ", writeBackResult=" + writeBackResult);
+            }
+        }
+    }
 
-        return jsonReturn;
+    /**
+     * 检测 mp4 文件的有效性
+     *
+     * @param mp4File 需要检测的文件
+     * @return bln
+     */
+    public static boolean checkMp4File(File mp4File) {
+        if (!mp4File.exists()) {
+            return false;
+        }
+        try {
+            List<String> listCommand = new ArrayList<>();
+            listCommand.add(ConvertVideoConfig.ffmpegFile);
+            listCommand.add("-i");
+            listCommand.add(mp4File.getCanonicalPath());
+            if (new OsInfo().isWindows()) {
+                Process videoProcess = new ProcessBuilder(listCommand).redirectErrorStream(true).start();
+                videoProcess.waitFor();
+
+                return !(StringUtils.isNotBlank(IOUtils.toString(videoProcess.getErrorStream()))
+                        || StringUtils.contains(IOUtils.toString(videoProcess.getInputStream()),
+                        "Invalid data found when processing input"));
+            } else {
+                log.info("linux开始");
+                StringBuilder strbTest = new StringBuilder();
+                for (String s : listCommand) strbTest.append(s).append(" ");
+                log.info(strbTest.toString());
+                // 执行命令
+                Process p = Runtime.getRuntime().exec(strbTest.toString());
+                // 取得命令结果的输出流
+                return !StringUtils.contains(IOUtils.toString(p.getInputStream()), "Invalid data found when processing input");
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("校验mp4文件【" + mp4File.getName() + "】异常", e);
+            return false;
+        }
     }
 
 

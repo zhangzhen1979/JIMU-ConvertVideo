@@ -1,40 +1,42 @@
 package com.thinkdifferent.convertvideo.config;
 
-//import org.apache.commons.logging.Log;
-//import org.apache.commons.logging.LogFactory;
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.DirectExchange;
-import org.springframework.amqp.core.Queue;
+
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @auther zz
  * @Date 2019/4/26 15:08
  */
 @Configuration
-public class RabbitMQConfig
-{
-//    public static Log log = LogFactory.getLog(RabbitMQConfig.class.getName());
+@ConditionalOnProperty(prefix = "spring.rabbitmq.listener.direct", name = "auto-startup", havingValue ="true")
+public class RabbitMQConfig {
 
     // 生产者，是否开启
     public static boolean producer;
+
     @Value(value = "${spring.rabbitmq.listener.direct.auto-startup}")
-    public static void setProducer(boolean producer) {
+    public void setProducer(boolean producer) {
         RabbitMQConfig.producer = producer;
     }
 
     // 消费者，是否开启
     public static boolean consumer;
+
     @Value(value = "${spring.rabbitmq.listener.simple.auto-startup}")
-    public static void setConsumer(boolean consumer) {
+    public void setConsumer(boolean consumer) {
         RabbitMQConfig.consumer = consumer;
     }
 
@@ -65,20 +67,19 @@ public class RabbitMQConfig
 
     // 配置“交换机”
     // 接收队列交换机
-    public static final String EXECHANGE_RECEIVE = "exchange_receive";//交换机
+    public static final String EXECHANGE_RECEIVE = "exchange_receive_video";//交换机
 
     // 配置“队列名称”
     // 接收队列名称
-    public static final String QUEUE_RECEIVE = "queue_receive";//请求队列名称
+    public static final String QUEUE_RECEIVE = "queue_receive_video";//请求队列名称
 
     // 配置“路由关键字”
     // 接收队列路由关键字
-    public static final String ROUTING_RECEIVE = "routing_receive";//路由关键字
+    public static final String ROUTING_RECEIVE = "routing_receive_video";//路由关键字
 
-    
+
     @Bean
-    public ConnectionFactory connectionFactory()
-    {
+    public ConnectionFactory connectionFactory() {
         CachingConnectionFactory connectionFactory = new CachingConnectionFactory(host, port);
         connectionFactory.setUsername(username);
         connectionFactory.setPassword(password);
@@ -90,8 +91,7 @@ public class RabbitMQConfig
     @Bean
     @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
     //必须是prototype类型
-    public RabbitTemplate rabbitTemplate()
-    {
+    public RabbitTemplate rabbitTemplate() {
         RabbitTemplate template = new RabbitTemplate(connectionFactory());
         return template;
     }
@@ -111,35 +111,72 @@ public class RabbitMQConfig
      * headers交换器和direct交换器完全一致，但性能会差很多，headers交换器允许匹配AMQP消息的是header而非路由键，因此它并不实用。
      * fanout交换器可以将收到的消息投递给所有附件在此交换器上的队列。topic交换器可以使得来自不同源头的消息能够到达同一个队列
      */
-    
+
     // 接收  交换机
     @Bean
-    public DirectExchange defaultExchange_receive()
-    {
+    public DirectExchange defaultExchange_receive() {
         //默认是交换机持久化
         return new DirectExchange(EXECHANGE_RECEIVE);
     }
 
-    
+
     // 接收  队列
     @Bean
-    public Queue queue_recieve()
-    {
+    public Queue queue_recieve() {
         return new Queue(QUEUE_RECEIVE, true); //队列持久
     }
 
 
     /**
      * 将消息和交换机进行绑定
+     *
      * @return
      */
     // 接收队列和接收交换机绑定
     @Bean
-    public Binding binding_queue_reecive()
-    {
+    public Binding binding_queue_reecive() {
 
         return BindingBuilder.bind(queue_recieve()).to(defaultExchange_receive()).with(ROUTING_RECEIVE);
     }
 
+    /************ 重试部分 ***************/
+    // 接收队列交换机
+    public static final String DELAY_EXCHANGE_RETRY = "delay_exchange_retry_video";//交换机
 
+    // 配置“队列名称”
+    // 接收队列名称
+    public static final String DELAY_QUEUE_RETRY = "delay_queue_retry_video";//请求队列名称
+
+    // 配置“路由关键字”
+    // 接收队列路由关键字
+    public static final String DELAY_ROUTING_RECEIVE_RETRY = "delay_key_retry_video";//路由关键字
+
+    /**
+     * 重试的延时队列交换机
+     * 注意这里的交换机类型：CustomExchange
+     */
+    @Bean("delayExchangeRetry")
+    public CustomExchange delayExchangeRetry() {
+        Map<String, Object> args = new HashMap<>();
+        args.put("x-delayed-type", "direct");
+        //属性参数 交换机名称 交换机类型 是否持久化 是否自动删除 配置参数
+        return new CustomExchange(DELAY_EXCHANGE_RETRY, "x-delayed-message", true, false, args);
+    }
+
+    /**
+     * 重试的延时队列
+     */
+    @Bean("delayQueueRetry")
+    public Queue delayQueueRetry() {
+        //属性参数 队列名称 是否持久化
+        return new Queue(DELAY_QUEUE_RETRY, true);
+    }
+
+    /**
+     * 给延时队列绑定交换机（重试）
+     */
+    @Bean("delayBindingRetry")
+    public Binding delayBindingRetry() {
+        return BindingBuilder.bind(delayQueueRetry()).to(delayExchangeRetry()).with(DELAY_ROUTING_RECEIVE_RETRY).noargs();
+    }
 }

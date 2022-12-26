@@ -1,28 +1,29 @@
 package com.thinkdifferent.convertvideo.task;
 
+import com.thinkdifferent.convertvideo.config.SystemConstants;
+import com.thinkdifferent.convertvideo.entity.CallBackResult;
 import com.thinkdifferent.convertvideo.service.ConvertVideoService;
+import com.thinkdifferent.convertvideo.service.RabbitMQService;
+import lombok.extern.log4j.Log4j2;
 import net.sf.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
+import javax.annotation.Resource;
 
 @Component
+@Log4j2
 public class Task implements RabbitTemplate.ConfirmCallback {
-    // 日志对象，用于输出执行过程中的日志信息
-    private static final Logger log = LoggerFactory.getLogger(Task.class);
-
+    @Resource
+    private RabbitMQService rabbitMQService;
 
     /**
      * 处理接收列表中的数据，异步多线程任务
      *
      * @param convertVideoService 创建PDF文件的Service对象
-     * @param jsonInput 队列中待处理的JSON数据
+     * @param jsonInput           队列中待处理的JSON数据
      * @throws Exception
      */
     @Async("taskExecutor")
@@ -33,26 +34,20 @@ public class Task implements RabbitTemplate.ConfirmCallback {
 
         log.info("MQ中存储的数据:" + jsonInput.toString());
 
-        Map<String, String> mapReturn = new HashMap<>();
-
-
-        try{
-            JSONObject jsonSuccess = convertVideoService.ConvertVideo(jsonInput);
-            if("success".equalsIgnoreCase(jsonSuccess.getString("flag"))){
-                mapReturn.put("flag", "success");
-                mapReturn.put("message", "Video Convert to Mp4 Success.");
-            }else{
-                mapReturn.put("flag", "error");
-                mapReturn.put("message", "Video Convert to Mp4 Error.");
-            }
+        CallBackResult callBackResult = new CallBackResult(false);
+        try {
+            callBackResult = convertVideoService.convertVideo(jsonInput);
         } catch (Exception e) {
-            e.printStackTrace();
-            log.info("转换MP4异常");
-            log.error(e.getMessage());
-
-            mapReturn.put("flag", "error" );
-            mapReturn.put("message", "Video Convert to Mp4 Error.");
-
+            log.error("转换MP4异常", e);
+            callBackResult = new CallBackResult(false, e.getMessage());
+        } finally {
+            if (callBackResult.isFlag()) {
+                // 成功，清理失败记录
+                SystemConstants.removeErrorData(jsonInput);
+            } else {
+                // 异常情况重试
+                rabbitMQService.setRetryData2MQ(jsonInput);
+            }
         }
         long longEnd = System.currentTimeMillis();
         log.info("完成-转换MP4文件，耗时：" + (longEnd - longStart) + "毫秒");
@@ -61,13 +56,13 @@ public class Task implements RabbitTemplate.ConfirmCallback {
 
     /**
      * 回调反馈消费者消费信息
+     *
      * @param correlationData
      * @param b
      * @param msg
      */
     @Override
-    public void confirm(CorrelationData correlationData, boolean b, String msg)
-    {
+    public void confirm(CorrelationData correlationData, boolean b, String msg) {
         log.info(" 回调id:" + correlationData);
         if (b) {
             log.info("消息成功消费");
