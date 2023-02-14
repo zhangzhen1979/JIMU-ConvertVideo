@@ -2,7 +2,7 @@ package com.thinkdifferent.convertvideo.entity.input;
 
 import cn.hutool.core.io.FileUtil;
 import com.thinkdifferent.convertvideo.config.ConvertVideoConfig;
-import com.thinkdifferent.convertvideo.utils.ConvertUtil;
+import com.thinkdifferent.convertvideo.utils.SystemUtil;
 import com.thinkdifferent.convertvideo.utils.FtpUtil;
 import org.springframework.util.Assert;
 
@@ -63,7 +63,7 @@ public class InputFtp extends Input {
     @Override
     public File getInputFile() {
         // 文件临时存储路径
-        String strTempPath = ConvertUtil.beautifulPath(ConvertVideoConfig.inPutTempPath);
+        String strTempPath = SystemUtil.beautifulPath(ConvertVideoConfig.inPutTempPath);
         if (super.inputFile == null) {
             // FTP 格式，需要下载文件
             String strInputFileName = filePath.substring(filePath.lastIndexOf("/") + 1);

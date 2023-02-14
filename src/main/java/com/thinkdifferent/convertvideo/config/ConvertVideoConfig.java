@@ -1,8 +1,8 @@
 package com.thinkdifferent.convertvideo.config;
 
+import com.thinkdifferent.convertvideo.utils.SystemUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,12 +13,20 @@ public class ConvertVideoConfig {
     public static String inPutTempPath;
     @Value("${convert.video.inPutTempPath}")
     public void setInPutTempPath(String inPutTempPath) {
+        inPutTempPath = SystemUtil.beautifulPath(inPutTempPath);
+        if(inPutTempPath.endsWith("intemp/")){
+            inPutTempPath = inPutTempPath + "intemp/";
+        }
         ConvertVideoConfig.inPutTempPath = inPutTempPath;
     }
 
     public static String outPutPath;
     @Value(value = "${convert.video.outPutPath}")
     public void setOutPutPath(String outPutPath) {
+        outPutPath = SystemUtil.beautifulPath(outPutPath);
+        if(outPutPath.endsWith("outtemp/")){
+            outPutPath = outPutPath + "outtemp/";
+        }
         ConvertVideoConfig.outPutPath = outPutPath;
     }
 

@@ -9,8 +9,8 @@ import org.apache.commons.lang.StringUtils;
  * @version 1.0
  * @date 2022/4/22 9:51
  */
-public class ConvertUtil {
-    private ConvertUtil() {
+public class SystemUtil {
+    private SystemUtil() {
     }
 
     /**

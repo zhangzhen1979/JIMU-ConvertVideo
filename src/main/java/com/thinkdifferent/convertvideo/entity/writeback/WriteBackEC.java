@@ -2,7 +2,7 @@ package com.thinkdifferent.convertvideo.entity.writeback;
 
 import cn.hutool.core.map.MapUtil;
 import com.thinkdifferent.convertvideo.entity.WriteBackResult;
-import com.thinkdifferent.convertvideo.utils.ConvertUtil;
+import com.thinkdifferent.convertvideo.utils.SystemUtil;
 import com.thinkdifferent.convertvideo.utils.EcologyUploadUtil;
 import lombok.extern.log4j.Log4j2;
 import net.sf.json.JSONObject;
@@ -54,7 +54,7 @@ public class WriteBackEC extends WriteBack {
     @Override
     public WriteBackResult writeBack(File fileOut) {
         try {
-            String filePath = ConvertUtil.beautifulFilePath(fileOut.getCanonicalPath());
+            String filePath = SystemUtil.beautifulFilePath(fileOut.getCanonicalPath());
             String fileViewName = filePath.substring(filePath.lastIndexOf("/"));
 
             return writeBack2EC(appId, address, apiUrl, categoryID, filePath, fileViewName);

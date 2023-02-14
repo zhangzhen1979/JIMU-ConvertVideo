@@ -98,10 +98,10 @@ convert:
     # 最大重试次数（0-8）, 0标识不重试, 若异常情况只记录日志， 大于1（最大8）：标识失败进行重试的次数, 将会在以下时间重试（5min, 10min, 30min, 1h, 2h, 4h, 8h, 16h）
     max: 3
   video:
-    # 接收的输入文件存储的临时文件夹
-    inPutTempPath: D:/cvtest/temp/
-    # 输出文件所在文件夹
-    outPutPath: D:/cvtest/
+    # 默认本地接收文件夹。必须以“intemp/”结尾。不要配置到存储的根目录！定时任务会定时清空临时文件夹中的内容！！！
+    inPutTempPath: D:/cvtest/intemp/
+    # 默认本地输出文件夹。必须以“outtemp/”结尾。不要配置到存储的根目录！定时任务会定时清空临时文件夹中的内容！！！
+    outPutPath: D:/cvtest/outtemp/
     # ffmpeg相关设置
     ffmpeg:
       # ffmpeg所在文件夹和文件名
@@ -116,25 +116,25 @@ convert:
       resolution:
       # 音频编码格式。设置为空，则默认使用aac编码
       audioCode:
-      # 图片水印设置
-      picMark:
-        # 水印图片位置
-        picFile: d:/cvtest/watermark.png
-        # 水印位置。第一个参数表示水印距离视频左边的距离，第二个参数表示水印距离视频上边的距离
-        overlay: 500:500
-        # 水印缩放参数。缩放后的width和height
-        scale: 100:100
-      # 文字水印设置
-      textMark:
-        # 字体文件位置
-        fontFile: simhei.ttf
-        # 水印文字内容
-        text: XX公司
-        # 水印横坐标
-        localX: 100
-        # 水印纵坐标
-        localY: 10
-        # 文字大小
-        fontSize: 24
-        # 文字颜色
-        fontColor: yellow
+#      # 图片水印设置
+#      picMark:
+#        # 水印图片位置
+#        picFile: d:/cvtest/watermark.png
+#        # 水印位置。第一个参数表示水印距离视频左边的距离，第二个参数表示水印距离视频上边的距离
+#        overlay: 500:500
+#        # 水印缩放参数。缩放后的width和height
+#        scale: 100:100
+#      # 文字水印设置
+#      textMark:
+#        # 字体文件位置
+#        fontFile: simhei.ttf
+#        # 水印文字内容
+#        text: XX公司
+#        # 水印横坐标
+#        localX: 100
+#        # 水印纵坐标
+#        localY: 10
+#        # 文字大小
+#        fontSize: 24
+#        # 文字颜色
+#        fontColor: yellow

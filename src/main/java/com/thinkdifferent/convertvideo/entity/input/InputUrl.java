@@ -3,7 +3,7 @@ package com.thinkdifferent.convertvideo.entity.input;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.http.HttpUtil;
 import com.thinkdifferent.convertvideo.config.ConvertVideoConfig;
-import com.thinkdifferent.convertvideo.utils.ConvertUtil;
+import com.thinkdifferent.convertvideo.utils.SystemUtil;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -42,7 +42,7 @@ public class InputUrl extends Input {
     @Override
     public File getInputFile() {
         // 文件临时存储路径
-        String strTempPath = ConvertUtil.beautifulPath(ConvertVideoConfig.inPutTempPath);
+        String strTempPath = SystemUtil.beautifulPath(ConvertVideoConfig.inPutTempPath);
         if (super.inputFile == null) {
             String strInputFileName = getFileNameFromHeader();
             // 移除重名文件

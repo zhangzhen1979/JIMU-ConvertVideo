@@ -2,7 +2,7 @@ package com.thinkdifferent.convertvideo.entity.writeback;
 
 import com.thinkdifferent.convertvideo.config.ConvertVideoConfig;
 import com.thinkdifferent.convertvideo.entity.WriteBackResult;
-import com.thinkdifferent.convertvideo.utils.ConvertUtil;
+import com.thinkdifferent.convertvideo.utils.SystemUtil;
 
 import java.io.File;
 import java.util.Map;
@@ -27,7 +27,7 @@ public abstract class WriteBack {
      * @return 文件输出路径
      */
     public String getOutputPath() {
-        return ConvertUtil.beautifulPath(ConvertVideoConfig.outPutPath);
+        return SystemUtil.beautifulPath(ConvertVideoConfig.outPutPath);
     }
 
     /**

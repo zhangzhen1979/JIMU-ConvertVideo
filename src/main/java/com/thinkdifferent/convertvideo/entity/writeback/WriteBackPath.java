@@ -2,7 +2,7 @@ package com.thinkdifferent.convertvideo.entity.writeback;
 
 import cn.hutool.core.map.MapUtil;
 import com.thinkdifferent.convertvideo.entity.WriteBackResult;
-import com.thinkdifferent.convertvideo.utils.ConvertUtil;
+import com.thinkdifferent.convertvideo.utils.SystemUtil;
 
 import java.io.File;
 import java.util.Map;
@@ -30,7 +30,7 @@ public class WriteBackPath extends WriteBack {
     @Override
     public String getOutputPath() {
         // 本地路径使用配置的输出路径
-        return ConvertUtil.beautifulPath(path);
+        return SystemUtil.beautifulPath(path);
     }
 
     /**
